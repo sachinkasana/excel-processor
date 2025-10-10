@@ -387,7 +387,7 @@ def main():
         """)
         
         st.markdown("---")
-        st.markdown("**Made with ❤️ for GST professionals**")
+        st.markdown("**Made with ❤️ in India **")
     
     # Main interface
     col1, col2 = st.columns(2)
@@ -478,7 +478,7 @@ def main():
     st.markdown(
         """
         <div style='text-align: center'>
-        <p>🔧 Built with Streamlit | 📊 GSTR Excel Processor v1.0</p>
+        <p>📊 Juric v1.0</p>
         </div>
         """, 
         unsafe_allow_html=True
