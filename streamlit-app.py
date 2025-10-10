@@ -387,7 +387,7 @@ def main():
         """)
         
         st.markdown("---")
-        st.markdown("**Made with ❤️ in India **")
+        st.markdown("**Made with ❤️ in India**")
     
     # Main interface
     col1, col2 = st.columns(2)
