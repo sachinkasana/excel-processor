@@ -359,37 +359,14 @@ footer {visibility: hidden;}
 .stAppDeployButton {display: none !important;}
 .stActionButton {display: none !important;}
 button[data-testid="manage-app-button"] {display: none !important;}
-html body [data-testid="manage-app-button"] {
-  display: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
-
-/* Hide everything that might contain "Manage app" */
-div[data-testid="stVerticalBlock"] button:contains("Manage") {display: none !important;}
-
-/* Super aggressive hiding of manage button */
-*[class*="manage"], *[class*="Manage"], *[class*="MANAGE"] {
-    display: none !important;
-}
-
-/* Remove any overlay buttons */
-div[style*="z-index"] button {
-    display: none !important;
-}
-
-/* Hide everything that could be a floating button */
-div[style*="position: fixed"] {
-    display: none !important;
-}
- /* Hide the toolbar (includes Manage app and other top controls) */
+ <style>
+        /* Hide top toolbar (includes Manage app, menu, etc.) */
         [data-testid="stToolbar"] {
             display: none !important;
             visibility: hidden !important;
         }
 
-        /* Just in case Streamlit changes test IDs in future updates */
+        /* Hide Manage app button explicitly (backup for future versions) */
         [data-testid="manage-app-button"],
         button[data-testid="manage-app-button"],
         div[data-testid="manage-app-button"] {
@@ -399,17 +376,22 @@ div[style*="position: fixed"] {
             pointer-events: none !important;
         }
 
-        /* Optional: remove top padding left by toolbar */
+        /* Hide the "Hosted with Streamlit" badge */
+        [data-testid="stDecoration"] {
+            display: none !important;
+            visibility: hidden !important;
+        }
+
+        /* Optional: remove top header spacing */
         header[data-testid="stHeader"] {
             height: 0px;
             visibility: hidden;
         }
 
-        /* Optional: remove blank space at top */
+        /* Optional: clean up layout padding */
         .block-container {
             padding-top: 1rem;
         }
-</style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
