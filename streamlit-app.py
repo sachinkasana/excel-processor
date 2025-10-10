@@ -355,6 +355,29 @@ hide_streamlit_style = """
 header {visibility: hidden;}
 footer {visibility: hidden;}
 .stActionButton {visibility: hidden;}
+/* Hide manage app button - MOST IMPORTANT */
+.stAppDeployButton {display: none !important;}
+.stActionButton {display: none !important;}
+button[data-testid="manage-app-button"] {display: none !important;}
+
+/* Hide everything that might contain "Manage app" */
+div[data-testid="stVerticalBlock"] button:contains("Manage") {display: none !important;}
+
+/* Super aggressive hiding of manage button */
+*[class*="manage"], *[class*="Manage"], *[class*="MANAGE"] {
+    display: none !important;
+}
+
+/* Remove any overlay buttons */
+div[style*="z-index"] button {
+    display: none !important;
+}
+
+/* Hide everything that could be a floating button */
+div[style*="position: fixed"] {
+    display: none !important;
+}
+
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
