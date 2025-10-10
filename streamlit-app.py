@@ -348,6 +348,18 @@ class StreamlitExcelProcessor:
         return output.getvalue(), output_filename
 
 
+# Hide Streamlit header and menu
+hide_streamlit_style = """
+<style>
+#MainMenu {visibility: hidden;}
+header {visibility: hidden;}
+footer {visibility: hidden;}
+.stActionButton {visibility: hidden;}
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
+
 def main():
     st.set_page_config(
         page_title="Juric",
@@ -472,17 +484,6 @@ def main():
     
     else:
         st.info("👆 Please upload both 2A and 2B Excel files to get started.")
-    
-    # Footer
-    st.markdown("---")
-    st.markdown(
-        """
-        <div style='text-align: center'>
-        <p>📊 Juric v1.0</p>
-        </div>
-        """, 
-        unsafe_allow_html=True
-    )
 
 
 if __name__ == "__main__":
