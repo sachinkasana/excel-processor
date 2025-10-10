@@ -355,6 +355,24 @@ hide_streamlit_style = """
 header {visibility: hidden;}
 footer {visibility: hidden;}
 .stActionButton {visibility: hidden;}
+/* Hide main menu */
+#MainMenu {visibility: hidden;}
+
+/* Hide deploy button */
+.stActionButton {visibility: hidden;}
+
+/* Hide "Manage app" button */
+.stAppDeployButton {visibility: hidden;}
+
+/* Hide settings */
+button[title="Settings"] {visibility: hidden;}
+
+/* Hide sharing button */  
+button[data-testid="stHeaderActionElements"] {visibility: hidden;}
+
+/* Hide development toolbar */
+.stToolbar {visibility: hidden;}
+
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
