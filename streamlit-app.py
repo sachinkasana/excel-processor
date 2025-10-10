@@ -359,6 +359,12 @@ footer {visibility: hidden;}
 .stAppDeployButton {display: none !important;}
 .stActionButton {display: none !important;}
 button[data-testid="manage-app-button"] {display: none !important;}
+html body [data-testid="manage-app-button"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
 
 /* Hide everything that might contain "Manage app" */
 div[data-testid="stVerticalBlock"] button:contains("Manage") {display: none !important;}
@@ -377,7 +383,32 @@ div[style*="z-index"] button {
 div[style*="position: fixed"] {
     display: none !important;
 }
+ /* Hide the toolbar (includes Manage app and other top controls) */
+        [data-testid="stToolbar"] {
+            display: none !important;
+            visibility: hidden !important;
+        }
 
+        /* Just in case Streamlit changes test IDs in future updates */
+        [data-testid="manage-app-button"],
+        button[data-testid="manage-app-button"],
+        div[data-testid="manage-app-button"] {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        /* Optional: remove top padding left by toolbar */
+        header[data-testid="stHeader"] {
+            height: 0px;
+            visibility: hidden;
+        }
+
+        /* Optional: remove blank space at top */
+        .block-container {
+            padding-top: 1rem;
+        }
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
