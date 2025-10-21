@@ -28,9 +28,11 @@ class StreamlitExcelProcessor:
         self.fixed_suffix = "juric"
     
     def extract_metadata(self, file_2B_content):
-        """Extract Legal Name and Tax Period from 2B Read me sheet"""
+        """Extract Legal Name and Tax Period from 2B Read me sheet (single file)."""
         try:
-            read_me_2B = pd.read_excel(file_2B_content, sheet_name='Read me', header=None)
+            # Ensure fresh buffer for pandas
+            buf = io.BytesIO(file_2B_content.getvalue() if hasattr(file_2B_content, 'getvalue') else file_2B_content.read())
+            read_me_2B = pd.read_excel(buf, sheet_name='Read me', header=None)
             
             for i in range(len(read_me_2B)):
                 row_values = read_me_2B.iloc[i].tolist()
@@ -43,12 +45,50 @@ class StreamlitExcelProcessor:
                             if j + 2 < len(row_values) and pd.notna(row_values[j + 2]):
                                 self.tax_period = str(row_values[j + 2]).strip()
             
+            if not self.legal_name:
+                self.legal_name = "Unknown"
+            if not self.tax_period:
+                self.tax_period = "Unknown"
             return True, f"Legal Name: {self.legal_name}, Tax Period: {self.tax_period}"
             
         except Exception as e:
             self.legal_name = "Unknown"
             self.tax_period = "Unknown"
             return False, f"Could not extract metadata: {str(e)}"
+
+    def extract_metadata_multiple(self, files_2B_contents):
+        """Extract metadata from multiple 2B files. Prefer consistent values; fall back to 'Multiple'."""
+        names = []
+        periods = []
+        for f in files_2B_contents:
+            try:
+                buf = io.BytesIO(f.getvalue() if hasattr(f, 'getvalue') else f.read())
+                read_me_2B = pd.read_excel(buf, sheet_name='Read me', header=None)
+                local_name, local_period = None, None
+                for i in range(len(read_me_2B)):
+                    row_values = read_me_2B.iloc[i].tolist()
+                    for j, value in enumerate(row_values):
+                        if pd.notna(value) and isinstance(value, str):
+                            if 'Legal Name' in value and j + 2 < len(row_values) and pd.notna(row_values[j + 2]):
+                                local_name = str(row_values[j + 2]).strip()
+                            if 'Tax Period' in value and j + 2 < len(row_values) and pd.notna(row_values[j + 2]):
+                                local_period = str(row_values[j + 2]).strip()
+                names.append(local_name or "Unknown")
+                periods.append(local_period or "Unknown")
+            except Exception:
+                names.append("Unknown")
+                periods.append("Unknown")
+        # Decide on final values
+        unique_names = {n for n in names if n and n != "Unknown"}
+        unique_periods = {p for p in periods if p and p != "Unknown"}
+        self.legal_name = list(unique_names)[0] if len(unique_names) == 1 else (list(unique_names)[0] if unique_names else "Multiple")
+        self.tax_period = list(unique_periods)[0] if len(unique_periods) == 1 else (list(unique_periods)[0] if unique_periods else "Multiple")
+        # If clearly mixed, label as Multiple for clarity
+        if len(unique_names) > 1:
+            self.legal_name = "Multiple"
+        if len(unique_periods) > 1:
+            self.tax_period = "Multiple"
+        return True, f"Legal Name: {self.legal_name}, Tax Period: {self.tax_period}"
     
     def read_sheet_advanced(self, file_content, sheet_name, is_2B=False):
         """Advanced sheet reading that handles different sheet types"""
@@ -169,30 +209,54 @@ class StreamlitExcelProcessor:
         return df
     
     def read_all_sheets(self, file_2A_content, file_2B_content):
-        """Read all required sheets from both files"""
+        """Read all required sheets from 2A and one or more 2B files.
+        If `file_2B_content` is a list, data will be merged across files per sheet.
+        """
         progress_bar = st.progress(0)
         status_text = st.empty()
         
         total_sheets = len(self.sheets_2A) + len(self.sheets_2B)
         current_sheet = 0
         
+        # Prepare stable byte buffers to avoid stream pointer issues
+        bytes_2a = file_2A_content.getvalue() if hasattr(file_2A_content, 'getvalue') else file_2A_content.read()
+        is_multiple = isinstance(file_2B_content, (list, tuple))
+        if is_multiple:
+            bytes_2b_list = [f.getvalue() if hasattr(f, 'getvalue') else f.read() for f in file_2B_content]
+        else:
+            bytes_2b_single = file_2B_content.getvalue() if hasattr(file_2B_content, 'getvalue') else file_2B_content.read()
+
         # Read 2A sheets
         status_text.text("Reading sheets from 2A file...")
         for sheet_name in self.sheets_2A:
-            df = self.read_sheet_advanced(file_2A_content, sheet_name, is_2B=False)
+            # Fresh buffer per read
+            buf_2a = io.BytesIO(bytes_2a)
+            df = self.read_sheet_advanced(buf_2a, sheet_name, is_2B=False)
             if not df.empty:
                 df = self.map_columns_properly(df, is_2B=False, sheet_name=sheet_name)
             self.data_2A[sheet_name] = df
             current_sheet += 1
             progress_bar.progress(current_sheet / total_sheets)
         
-        # Read 2B sheets
-        status_text.text("Reading sheets from 2B file...")
+        # Read 2B sheets (single or multiple)
+        status_text.text("Reading sheets from 2B file(s)...")
         for sheet_name in self.sheets_2B:
-            df = self.read_sheet_advanced(file_2B_content, sheet_name, is_2B=True)
-            if not df.empty:
-                df = self.map_columns_properly(df, is_2B=True, sheet_name=sheet_name)
-            self.data_2B[sheet_name] = df
+            combined_list = []
+            if is_multiple:
+                for b in bytes_2b_list:
+                    buf_2b = io.BytesIO(b)
+                    df = self.read_sheet_advanced(buf_2b, sheet_name, is_2B=True)
+                    if not df.empty:
+                        df = self.map_columns_properly(df, is_2B=True, sheet_name=sheet_name)
+                        combined_list.append(df)
+                df_final = pd.concat(combined_list, ignore_index=True) if combined_list else pd.DataFrame()
+            else:
+                buf_2b = io.BytesIO(bytes_2b_single)
+                df = self.read_sheet_advanced(buf_2b, sheet_name, is_2B=True)
+                if not df.empty:
+                    df = self.map_columns_properly(df, is_2B=True, sheet_name=sheet_name)
+                df_final = df
+            self.data_2B[sheet_name] = df_final
             current_sheet += 1
             progress_bar.progress(current_sheet / total_sheets)
         
@@ -417,7 +481,7 @@ def main():
         st.markdown("""
         ### How to use:
         1. Upload your **2A.xlsx** file
-        2. Upload your **2B.xlsx** file  
+        2. Upload one or more **2B.xlsx** files
         3. Click **Process Files**
         4. Download the filtered result
         
@@ -426,12 +490,13 @@ def main():
         - ✅ For CDNR sheets: **GSTIN + Note number**
         - ✅ Adds period and filing date columns
         - ✅ Maintains proper sorting order
-        - ✅ Processes 4 sheets: B2B, B2BA, CDNR, CDNRA
+        - ✅ Processes and outputs all 4 sheets: B2B, B2BA, CDNR, CDNRA
+        - ✅ If multiple 2B files are uploaded, data is merged across them before filtering 2A
         
         ### File Requirements:
         - Files must be in **.xlsx** format
         - Must contain the standard GSTR sheets
-        - 2B file should have a 'Read me' sheet
+        - 2B files should have a 'Read me' sheet (for metadata)
         """)
         
         st.markdown("---")
@@ -453,19 +518,25 @@ def main():
             st.info(f"File size: {file_2A.size / 1024:.1f} KB")
     
     with col2:
-        st.subheader("📄 Upload 2B File")
-        file_2B = st.file_uploader(
-            "Choose 2B.xlsx file",
+        st.subheader("📄 Upload 2B File(s)")
+        files_2B = st.file_uploader(
+            "Choose one or more 2B.xlsx files",
             type=['xlsx'],
-            help="Upload your GSTR 2B Excel file"
+            accept_multiple_files=True,
+            help="Upload one or multiple GSTR 2B Excel files"
         )
         
-        if file_2B:
-            st.success(f"✅ 2B File uploaded: {file_2B.name}")
-            st.info(f"File size: {file_2B.size / 1024:.1f} KB")
+        if files_2B:
+            if len(files_2B) == 1:
+                f = files_2B[0]
+                st.success(f"✅ 2B File uploaded: {f.name}")
+                st.info(f"File size: {f.size / 1024:.1f} KB")
+            else:
+                st.success(f"✅ {len(files_2B)} 2B files uploaded")
+                st.caption(", ".join([f.name for f in files_2B]))
     
     # Process button
-    if file_2A and file_2B:
+    if file_2A and files_2B:
         st.markdown("---")
         
         col1, col2, col3 = st.columns([1, 2, 1])
@@ -475,12 +546,15 @@ def main():
                     with st.spinner("Processing your files..."):
                         processor = StreamlitExcelProcessor()
                         
-                        # Extract metadata
-                        metadata_success, metadata_msg = processor.extract_metadata(file_2B)
+                        # Extract metadata (single vs multiple 2B)
+                        if len(files_2B) == 1:
+                            metadata_success, metadata_msg = processor.extract_metadata(files_2B[0])
+                        else:
+                            metadata_success, metadata_msg = processor.extract_metadata_multiple(files_2B)
                         st.info(f"📋 Extracted: {metadata_msg}")
                         
                         # Read all sheets
-                        processor.read_all_sheets(file_2A, file_2B)
+                        processor.read_all_sheets(file_2A, files_2B if len(files_2B) > 1 else files_2B[0])
                         
                         # Process and filter
                         total_records = processor.process_and_filter_data()
@@ -519,7 +593,7 @@ def main():
                     st.error("Please check your files and try again.")
     
     else:
-        st.info("👆 Please upload both 2A and 2B Excel files to get started.")
+        st.info("👆 Please upload 2A and at least one 2B Excel file to get started.")
 
 
 if __name__ == "__main__":
